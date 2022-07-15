@@ -149,7 +149,7 @@ public class TestMallEvac extends PApplet {
         for (int i = 0; i < evacPos.size(); i++) {
             ZPoint[] pair = dirTest[i];
             for (ZPoint dir : pair) {
-                dir.displayAsVector(this, evacPos.get(i), 10, 1);
+                ZRender.drawZPointAsVec(this, dir, evacPos.get(i), 10, 1);
             }
         }
     }

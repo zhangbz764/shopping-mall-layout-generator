@@ -3,7 +3,6 @@ package main;
 import basicGeometry.ZFactory;
 import basicGeometry.ZPoint;
 import mallElementNew.AtriumRaw;
-import mallElementNew.AtriumRawFactory;
 import mallElementNew.AtriumRawManager;
 import mallElementNew.Shop;
 import mallParameters.MallConst;
@@ -26,7 +25,7 @@ import java.util.List;
  * @date 2021/5/12
  * @time 11:20
  */
-public class MallInteract {
+public class MallInteractor {
     // site & building boundary
     private int boundaryBase = 0;                       // the L-shape base point index
     private Coordinate[] boundary_controllers;          // controller points of building boundary
@@ -35,10 +34,13 @@ public class MallInteract {
     private boolean trafficOrAtrium = true;             // switch toggle for traffic/atrium interact
     private List<WB_Point> traffic_innerControllers;    // inner controller points of traffic curve
     private List<WB_Point> traffic_entryControllers;    // entry controller points of traffic curve
-    private AtriumRawManager atriumRawManager;          // atrium manager for interact rules
-    private AtriumRaw selectedAtriumRaw;                   // 选择的原始中庭
     private int selectedAtriumRawType = -1;                // 选择的中庭类型代号
+    private List<Polygon> atriumRawShapes;
+    private Polygon selectedAtriumRawShape = null;
+    private int selectedAtriumRawShapeID = -1;
     private WB_Point[] atriumRaw_controllers;              // 选择的原始中庭的控制点
+
+
     private int atriumRawDragFlag = -1;                    // 拖拽中心 or 边界控制点
     private int atriumRawNodeID = -1;                      // 被拖拽的边界控制点序号
     private Polygon mainTraffic_buffer;                 // 主路径区域（用于判断）
@@ -92,7 +94,7 @@ public class MallInteract {
 
     /* ------------- constructor ------------- */
 
-    public MallInteract() {
+    public MallInteractor() {
 
     }
 
@@ -312,131 +314,46 @@ public class MallInteract {
     }
 
     /**
-     * click update: add atrium or select atrium
+     * select / unselect atrium raw shape by mouse click
      *
      * @param x pointer x
      * @param y pointer y
      * @return void
      */
-    public void clickUpdateAtriumRaw(double x, double y) {
-        if (!trafficOrAtrium) {
-            WB_Point p = new WB_Point(x, y);
-            if (selectedAtriumRawType > -1) {
-                // add atrium
-                if (mainTraffic_buffer.contains(ZFactory.jtsgf.createPoint(new Coordinate(x, y)))) {
-                    switch (selectedAtriumRawType) {
-                        case 0:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumTri(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 1:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumSq(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 2:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumTra(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 3:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumPen(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 4:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumHex(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 5:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumHex2(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 6:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumLS(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                        case 7:
-                            atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumOct(p, MallConst.ATRIUM_AREA_INIT, false));
-                            break;
-                    }
-                    selectedAtriumRawType = -1;
-                }
-            } else {
-                // select / unselect atrium
-                if (selectedAtriumRaw == null) {
-                    for (AtriumRaw a : atriumRawManager.getAtriumRaws()) {
-                        WB_Polygon shape = ZTransform.PolygonToWB_Polygon(a.getShape());
-                        if (WB_GeometryOp.contains2D(p, shape)) {
-                            this.selectedAtriumRaw = a;
-                            this.atriumRaw_controllers = new WB_Point[a.getShapePtsNum() + 1];
-                            atriumRaw_controllers[0] = a.getCenter().copy();
-                            for (int i = 0; i < a.getShapePtsNum(); i++) {
-                                atriumRaw_controllers[i + 1] = a.getShapePoints()[i].copy();
-                            }
-                            break;
-                        }
-                    }
-                } else {
-                    WB_Polygon shape = ZTransform.PolygonToWB_Polygon(selectedAtriumRaw.getShape());
-                    if (!WB_GeometryOp.contains2D(p, shape)) {
-                        this.selectedAtriumRaw = null;
-                        this.atriumRaw_controllers = null;
-                    }
+    public void selectAtriumRawShape(double x, double y) {
+        Point mouse = ZFactory.jtsgf.createPoint(new Coordinate(x, y));
+        if (selectedAtriumRawShapeID > -1) {
+            if (!selectedAtriumRawShape.contains(mouse)) {
+                selectedAtriumRawShape = null;
+                selectedAtriumRawShapeID = -1;
+                atriumRaw_controllers = null;
+            }
+        } else {
+            for (int i = 0; i < atriumRawShapes.size(); i++) {
+                Polygon shape = atriumRawShapes.get(i);
+                if (shape.contains(mouse)) {
+                    this.selectedAtriumRawShape = shape;
+                    this.selectedAtriumRawShapeID = i;
+                    break;
                 }
             }
         }
     }
 
     /**
-     * remove the selected atrium
+     * update selected raw atrium shape center and controllers
      *
+     * @param center center of selected raw atrium
+     * @param ctrls  controllers of selected raw atrium
      * @return void
      */
-    public void removeAtriumRaw() {
-        if (selectedAtriumRaw != null) {
-            atriumRawManager.removeAtriumRaw(selectedAtriumRaw);
-            selectedAtriumRaw = null;
+    public void updateAtriumRawControls(WB_Point center, WB_Point[] ctrls) {
+        this.atriumRaw_controllers = new WB_Point[ctrls.length + 1];
+        atriumRaw_controllers[0] = center.copy();
+        for (int i = 0; i < ctrls.length; i++) {
+            atriumRaw_controllers[i + 1] = ctrls[i].copy();
         }
     }
-
-    /**
-     * change curve shape or polygon shape of the selected atrium
-     *
-     * @return void
-     */
-    public void changeAtriumRawCurve() {
-        if (selectedAtriumRaw != null) {
-            selectedAtriumRaw.reverseCurve();
-            for (int i = 0; i < selectedAtriumRaw.getShapePtsNum(); i++) {
-                atriumRaw_controllers[i + 1] = selectedAtriumRaw.getShapePoints()[i].copy();
-            }
-            atriumRawManager.validateAtriumRaw();
-        }
-    }
-
-    /**
-     * rotate the selected atrium
-     *
-     * @param angle angle to rotate
-     * @return void
-     */
-    public void rotateAtriumRaw(double angle) {
-        if (selectedAtriumRaw != null) {
-            selectedAtriumRaw.rotateByAngle(angle);
-            for (int i = 0; i < selectedAtriumRaw.getShapePtsNum(); i++) {
-                atriumRaw_controllers[i + 1] = selectedAtriumRaw.getShapePoints()[i].copy();
-            }
-            atriumRawManager.validateAtriumRaw();
-        }
-    }
-
-    /**
-     * scale selected atrium by area
-     *
-     * @param area input area
-     * @return void
-     */
-    public void changeAtriumRawArea(double area) {
-        if (selectedAtriumRaw != null) {
-            selectedAtriumRaw.scaleShapeByArea(area);
-            for (int i = 0; i < selectedAtriumRaw.getShapePtsNum(); i++) {
-                atriumRaw_controllers[i + 1] = selectedAtriumRaw.getShapePoints()[i].copy();
-            }
-            atriumRawManager.validateAtriumRaw();
-        }
-    }
-
 
     /* ------------- main corridor interact ------------- */
 
@@ -895,16 +812,24 @@ public class MallInteract {
         return traffic_entryControllers;
     }
 
-    public AtriumRawManager getAtriumRawManager() {
-        return atriumRawManager;
-    }
-
     public void setMainTraffic_buffer(Polygon mainTraffic_buffer) {
         this.mainTraffic_buffer = mainTraffic_buffer;
     }
 
     public void setSelectedAtriumRawType(int selectedAtriumRawType) {
         this.selectedAtriumRawType = selectedAtriumRawType;
+    }
+
+    public int getSelectedAtriumRawType() {
+        return selectedAtriumRawType;
+    }
+
+    public void setAtriumRawShapes(List<Polygon> atriumRawShapes) {
+        this.atriumRawShapes = atriumRawShapes;
+    }
+
+    public int getSelectedAtriumRawShapeID() {
+        return selectedAtriumRawShapeID;
     }
 
     public Polygon[] getAtriumRawShapes() {

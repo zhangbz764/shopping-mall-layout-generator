@@ -1,6 +1,7 @@
 package main;
 
 import advancedGeometry.rectCover.ZRectCover;
+import basicGeometry.ZFactory;
 import basicGeometry.ZLine;
 import mallElementNew.*;
 import mallParameters.MallConst;
@@ -10,7 +11,9 @@ import processing.core.PApplet;
 import render.JtsRender;
 import render.ZRender;
 import transform.ZTransform;
+import wblut.geom.WB_GeometryOp;
 import wblut.geom.WB_Point;
+import wblut.geom.WB_PolyLine;
 import wblut.geom.WB_Polygon;
 import wblut.processing.WB_Render;
 
@@ -34,6 +37,7 @@ public class MallGenerator {
 
     // MainTraffic: main traffic & raw atriums
     private MainTraffic mainTraffic;
+    private AtriumRawManager atriumRawManager;
     private LineString innerTrafficCurve;          // 内部主路径轴线（除去入口）
 
     // PublicSpace: main corridor & public space
@@ -134,6 +138,10 @@ public class MallGenerator {
         this.boundaryArea = siteBase.getBoundaryArea();
     }
 
+    public void updateBoundary(Polygon boundary_receive) {
+        siteBase.setBoundary(boundary_receive);
+    }
+
     /* ------------- generating main traffic ------------- */
 
     /**
@@ -144,6 +152,7 @@ public class MallGenerator {
      */
     public void initTraffic(double bufferDist) {
         this.mainTraffic = new MainTraffic(siteBase.getBoundary(), bufferDist);
+        this.atriumRawManager = new AtriumRawManager(mainTraffic.getMainTrafficCurveWB());
     }
 
     /**
@@ -154,18 +163,137 @@ public class MallGenerator {
      * @param bufferDist        distance to buffer
      * @return void
      */
-    public void updateTraffic(List<WB_Point> innerNode_receive, List<WB_Point> entryNode_receive, double bufferDist) {
-        mainTraffic.updateTraffic(innerNode_receive, entryNode_receive, bufferDist);
+    public void updateTraffic(List<WB_Point> entryNode_receive, List<WB_Point> innerNode_receive, double bufferDist) {
+        mainTraffic.updateTraffic(entryNode_receive, innerNode_receive, bufferDist);
+        atriumRawManager.updateAtriumRawByTraffic(mainTraffic.getMainTrafficCurveWB());
     }
 
     /**
-     * update main traffic
+     * update main traffic by raw nodes, set invalid node to proper position
+     *
+     * @param entryNode_receive received entry node
+     * @param innerNode_receive received inner node
+     * @param bufferDist        distance to buffer
+     * @return void
+     */
+    public void updateTrafficByRawNodes(List<WB_Point> entryNode_receive, List<WB_Point> innerNode_receive, double bufferDist) {
+        WB_Polygon boundTemp = ZTransform.PolygonToWB_Polygon(siteBase.getBoundary());
+        for (WB_Point p : innerNode_receive) {
+            if (!WB_GeometryOp.contains2D(p, boundTemp)) {
+                WB_PolyLine pl = ZTransform.WB_PolygonToWB_PolyLine(boundTemp).get(0);
+                WB_Point closest = WB_GeometryOp.getClosestPoint2D(p, pl);
+                p.set(closest);
+            }
+        }
+        for (WB_Point p : entryNode_receive) {
+            WB_PolyLine pl = ZTransform.WB_PolygonToWB_PolyLine(boundTemp).get(0);
+            WB_Point closest = WB_GeometryOp.getClosestPoint2D(p, pl);
+            p.set(closest);
+        }
+        mainTraffic.updateTraffic(entryNode_receive, innerNode_receive, bufferDist);
+    }
+
+    /**
+     * update main traffic width
      *
      * @param bufferDist distance to buffer
      * @return void
      */
     public void updateTrafficWidth(double bufferDist) {
         mainTraffic.updateTrafficWidth(bufferDist);
+    }
+
+    /* ------------- generating raw atrium ------------- */
+
+    /**
+     * add a raw atriumwang
+     *
+     * @param x          pointer x
+     * @param y          pointer x
+     * @param atriumType type id of atriumRaw
+     * @return void
+     */
+    public void addAtriumRaw(double x, double y, int atriumType) {
+        Polygon trafficBuffer = mainTraffic.getMainTrafficBuffer();
+        Point p = ZFactory.jtsgf.createPoint(new Coordinate(x, y));
+        WB_Point generator;
+        if (trafficBuffer.contains(p)) {
+            generator = ZTransform.PointToWB_Point(p);
+        } else {
+            WB_PolyLine bufferPL = ZTransform.PolygonToWB_PolyLine(trafficBuffer).get(0);
+            WB_Point pWB = ZTransform.PointToWB_Point(p);
+            generator = WB_GeometryOp.getClosestPoint2D(pWB, bufferPL);
+        }
+        if (generator != null) {
+            switch (atriumType) {
+                case 0:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumTri(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 1:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumSq(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 2:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumTra(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 3:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumPen(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 4:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumHex(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 5:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumHex2(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 6:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumLS(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+                case 7:
+                    atriumRawManager.addAtriumRaw(AtriumRawFactory.createAtriumOct(generator, MallConst.ATRIUM_AREA_INIT, false));
+                    break;
+            }
+        }
+    }
+
+    /**
+     * remove raw atrium
+     *
+     * @param id index of updating raw atrium
+     * @return void
+     */
+    public void removeAtriumRaw(int id) {
+        atriumRawManager.removeAtriumRaw(id);
+    }
+
+    /**
+     * change curve shape or polygon shape of the selected atrium
+     *
+     * @param id index of updating raw atrium
+     * @return void
+     */
+    public void changeAtriumRawCurve(int id) {
+        atriumRawManager.switchAtriumRawCurve(id);
+    }
+
+    /**
+     * rotate raw atrium
+     *
+     * @param id    index of updating raw atrium
+     * @param angle angle to rotate
+     * @return void
+     */
+    public void rotateAtriumRaw(int id, double angle) {
+        atriumRawManager.rotateAtriumRaw(id, angle);
+    }
+
+    /**
+     * scale raw atrium by area
+     *
+     * @param id   index of updating raw atrium
+     * @param area input area
+     * @return void
+     */
+    public void changeAtriumRawArea(int id, double area) {
+        atriumRawManager.changeAtriumRawArea(id, area);
     }
 
     /* ------------- generating main corridor & public space ------------- */
@@ -485,10 +613,6 @@ public class MallGenerator {
         return siteBase;
     }
 
-    public Coordinate[] getBoundaryNodes() {
-        return siteBase.getBoundary().getCoordinates();
-    }
-
     public String getBoundaryAreaAsString() {
         return boundaryArea > 0 ? String.format("%.2f", boundaryArea) + "㎡" : "";
     }
@@ -497,12 +621,25 @@ public class MallGenerator {
         return mainTraffic;
     }
 
-    public List<WB_Point> getTrafficInnerNodes() {
-        return mainTraffic.getInnerNodes();
+    public AtriumRawManager getAtriumRawManager() {
+        return atriumRawManager;
     }
 
-    public List<WB_Point> getTrafficEntryNodes() {
-        return mainTraffic.getEntryNodes();
+    public List<Polygon> getAtriumRawShapes() {
+        List<Polygon> polygons = new ArrayList<>();
+        for (AtriumRaw a : atriumRawManager.getAtriumRaws()) {
+            polygons.add(a.getShape());
+        }
+        return polygons;
+    }
+
+    public WB_Point getChangedAtriumRawCenter(int id) {
+        return atriumRawManager.getAtriumRaws().get(id).getCenter();
+    }
+
+    public WB_Point[] getChangedAtriumRawShpts(int id) {
+        return atriumRawManager.getAtriumRaws().get(id).getShapePoints();
+
     }
 
     public void setRawAtrium_receive(Polygon[] rawAtrium_receive) {
@@ -558,23 +695,9 @@ public class MallGenerator {
         shopManager.setAllShops(newShops);
     }
 
-//    public List<Shop> getShopCells(int floorNum) {
-//        return floors[floorNum - 1].getAllShops();
-//    }
-//
-//    public void setShopCells(int floorNum, List<Polygon> shopCellPolys) {
-//        List<Shop> newShops = new ArrayList<>();
-//        for (Polygon p : shopCellPolys) {
-//            newShops.add(new Shop(p));
-//        }
-//        this.floors[floorNum - 1].setAllShops(newShops);
-//    }
-
     public AuxiliarySpace getAuxiliarySpace() {
         return auxiliarySpace;
     }
-
-
 
     /* ------------- draw ------------- */
 
@@ -812,454 +935,4 @@ public class MallGenerator {
             app.popMatrix();
         }
     }
-
-//    public void displayEvacuationLocal(PApplet app, JtsRender jtsRender) {
-//        app.pushStyle();
-//        if (stairways != null) {
-//            app.stroke(255);
-//            for (Stairway s : stairways) {
-//                app.fill(80);
-//                jtsRender.drawGeometry(s.getBound());
-//                app.fill(255, 0, 0);
-//                s.getBase().displayAsPoint(app);
-//                for (ZLine l : s.getShapes()) {
-//                    l.display(app);
-//                }
-//            }
-//        }
-//        if (evacPoly != null) {
-//            app.stroke(255);
-//            app.fill(80);
-//            for (Polygon p : evacPoly) {
-//                jtsRender.drawGeometry(p);
-//                // display shape
-//                ZPoint v01 = new ZPoint(
-//                        p.getCoordinates()[1].getX() - p.getCoordinates()[0].getX(),
-//                        p.getCoordinates()[1].getY() - p.getCoordinates()[0].getY()
-//                );
-//                ZPoint v03 = new ZPoint(
-//                        p.getCoordinates()[3].getX() - p.getCoordinates()[0].getX(),
-//                        p.getCoordinates()[3].getY() - p.getCoordinates()[0].getY()
-//                );
-//                ZPoint v01Nor = v01.normalize();
-//                ZPoint v03Nor = v03.normalize();
-//
-//                app.line(
-//                        new ZPoint(p.getCoordinates()[0]).add(v01Nor.scaleTo(2.4)).xf(),
-//                        new ZPoint(p.getCoordinates()[0]).add(v01Nor.scaleTo(2.4)).yf(),
-//                        new ZPoint(p.getCoordinates()[3]).add(v01Nor.scaleTo(2.4)).xf(),
-//                        new ZPoint(p.getCoordinates()[3]).add(v01Nor.scaleTo(2.4)).yf()
-//                );
-//                app.line(
-//                        new ZPoint(p.getCoordinates()[1]).add(v01Nor.scaleTo(2.4)).xf(),
-//                        new ZPoint(p.getCoordinates()[1]).add(v01Nor.scaleTo(2.4)).yf(),
-//                        new ZPoint(p.getCoordinates()[2]).add(v01Nor.scaleTo(2.4)).xf(),
-//                        new ZPoint(p.getCoordinates()[2]).add(v01Nor.scaleTo(2.4)).yf()
-//                );
-//
-//            }
-//        }
-
-//        if (newBound != null) {
-//            app.stroke(255);
-//            app.pushMatrix();
-//            app.translate(500, 0);
-//            jtsRender.drawGeometry(newBound);
-//            app.popMatrix();
-//        }
-//
-//        app.popStyle();
-//    }
-
-//    public void displayEvacuationRadiusLocal(PApplet app) {
-//        app.pushStyle();
-//        for (Stairway s : stairways) {
-//            ZPoint base = s.getBase();
-//            app.noFill();
-//            app.stroke(255, 0, 0);
-//            app.strokeWeight(1.2f);
-//            app.ellipse(base.xf(), base.yf(), 100, 100);
-//            app.line(
-//                    base.xf(),
-//                    base.yf(),
-//                    base.xf() + 50,
-//                    base.yf()
-//            );
-//            app.fill(255, 0, 0);
-//            app.textSize(5);
-//            app.pushMatrix();
-//            app.scale(1, -1);
-//            app.translate(0, (float) (-2 * base.yf()));
-//            app.text("50m",
-//                    base.xf() + 0.5f * 25,
-//                    base.yf() + 1
-//            );
-//            app.popMatrix();
-//        }
-//        app.popStyle();
-//    }
-
-
-    /* ------------- deprecated ------------- */
-
-    public void setBufferCurve_receive(int floorNum, List<LineString> bufferCurve_receive) {
-        if (floorNum == 1) {
-            this.bufferCurve_receive.set(0, bufferCurve_receive);
-        } else {
-            this.bufferCurve_receive.set(1, bufferCurve_receive);
-        }
-    }
-
-    public void setBufferCurve_receive(List<List<LineString>> bufferCurve_receive) {
-        this.bufferCurve_receive = bufferCurve_receive;
-    }
-
-    public void setCellPolys_receive(int floorNum, List<WB_Polygon> cellPolys_receive) {
-//        this.cellPolys_receive.set(floorNum - 1, cellPolys_receive);
-    }
-
-//    public void setShopCells_receive(int floorNum, List<Shop> shopCell_receive) {
-//        this.floors[floorNum - 1].setAllShops(shopCell_receive);
-//    }
-
-    public void setCellPolys_receive(List<List<WB_Polygon>> cellPolys_receive) {
-//        this.cellPolys_receive = cellPolys_receive;
-    }
-
-//    public MallFloor[] getFloors() {
-//        return floors;
-//    }
-
-//    public List<WB_Segment> getGraphSegments(int floorNum) {
-//        return floors[floorNum - 1].getGraph().toWB_Segments();
-//    }
-
-//    public List<List<WB_Coord>> getBufferControlPoints(int floorNum) {
-//        return floors[floorNum - 1].getBufferControlPoints();
-//    }
-
-//    public String getFloorStats(int floorNum) {
-//        MallFloor floor = floors[floorNum - 1];
-//
-//        WB_Polygon bufferOut = ZFactory.wbgf.createBufferedPolygons2D(boundary_receive, MallConst.EVACUATION_WIDTH).get(0);
-//        double bufferArea = Math.abs(bufferOut.getSignedArea());
-//
-////        double totalArea = Math.abs(boundary_receive.getSignedArea());
-////        double shopArea = 0;
-////        for (Polygon p : floor.getShopBlocks()) {
-////            shopArea += p.getArea();
-////        }
-//        double shopArea = newBound.getArea();
-//        for (Polygon ep : evacPoly) {
-//            shopArea -= ep.getArea();
-//        }
-//
-//        int shopNum = getShopCells(floorNum).size();
-//        double trafficLength = 0;
-//        for (ZEdge e : floor.getGraph().getAllEdges()) {
-//            trafficLength += e.getLength();
-//        }
-//        double shopRatio = shopArea / bufferArea;
-//
-//        return "本层建筑面积 : " + String.format("%.2f", bufferArea) + " ㎡"
-//                + "\n" + "可租赁面积 : " + String.format("%.2f", shopArea) + " ㎡"
-//                + "\n" + "商铺总数量 : " + shopNum
-//                + "\n" + "分层得铺率 : " + String.format("%.2f", shopRatio * 100) + " %"
-//                + "\n" + "小铺率 : "
-//                + "\n" + "动线长度 : " + String.format("%.2f", trafficLength) + " m";
-//    }
-
-    /* ------------- deprecated ------------- */
-
-//    /**
-//     * update traffic graph and buffer of current floor
-//     *
-//     * @param floorNum    current floor number
-//     * @param dist        buffer distance
-//     * @param curvePtsNum curve subdivision number
-//     * @return void
-//     */
-//    public void generateGraphAndBuffer(int floorNum, double dist, int curvePtsNum) {
-//        if (floorNum == 1) {
-//            this.floors[floorNum - 1].updateGraph(innerNode_receive, entryNode_receive);
-//        } else {
-//            this.floors[floorNum - 1].updateGraph(innerNode_receive, new ArrayList<WB_Point>());
-//        }
-//        this.floors[floorNum - 1].updateBuffer(rawAtrium_receive, dist, curvePtsNum);
-//
-//        this.floors[floorNum - 1].disposeSplit();
-//        this.floors[floorNum - 1].disposeSubdivision();
-//        this.floors[floorNum - 1].disposeEvacuation();
-//        this.floors[floorNum - 1].setStatus(1);
-//    }
-//
-//    /**
-//     * update block split and subdivision
-//     *
-//     * @param floorNum current floor number
-//     * @return void
-//     */
-//    public void generateSubdivision(int floorNum) {
-//        if (floorNum == 1) {
-//            this.floors[floorNum - 1].updateSubdivision(bufferCurve_receive.get(0), grids);
-//        } else {
-//            this.floors[floorNum - 1].updateSubdivision(bufferCurve_receive.get(1), grids);
-//        }
-//
-//        this.floors[floorNum - 1].disposeEvacuation();
-//        this.floors[floorNum - 1].setStatus(2);
-//    }
-//
-//    /**
-//     * generate positions of evacuate stairways
-//     *
-//     * @param floorNum current floor number
-//     * @return void
-//     */
-//    public void generateEvacuation(int floorNum) {
-////        this.floors[floorNum - 1].updateEvacuation(cellPolys_receive.get(floorNum - 1));
-//
-//        this.floors[floorNum - 1].setStatus(3);
-//    }
-//
-//
-
-//    public void displayGraphLocal(int floorNum, PApplet app, WB_Render render) {
-//        app.pushStyle();
-//        app.stroke(255);
-//        app.strokeWeight(1);
-//        for (WB_Segment seg : getGraphSegments(floorNum)) {
-//            render.drawSegment(seg);
-//        }
-//        app.popStyle();
-//    }
-
-//    public void displayPartitionLocal(int floorNum, PApplet app, JtsRender jtsRender) {
-//        app.pushStyle();
-//        app.strokeWeight(3);
-//        app.stroke(255);
-//        if (floors[floorNum - 1].getAllShops() != null) {
-//            List<Shop> cells = floors[floorNum - 1].getAllShops();
-//            for (Shop s : cells) {
-//                jtsRender.drawGeometry(s.getShape());
-//            }
-//        }
-////        if (floors[floorNum - 1].getAllSubLines() != null) {
-////            for (LineString l : floors[floorNum - 1].getAllSubLines()) {
-////                jtsRender.drawGeometry(l);
-////            }
-////        }
-//
-//        if (floors[floorNum - 1].getAllShops() != null) {
-//            app.noStroke();
-//            for (Shop s : floors[floorNum - 1].getAllShops()) {
-//                s.display(app, jtsRender);
-//            }
-//
-//            app.fill(255);
-//            app.textSize(2);
-//
-//            for (Shop s : floors[floorNum - 1].getAllShops()) {
-//                app.pushMatrix();
-//                app.scale(1, -1);
-//                app.translate(0, (float) (-2 * s.getCenter().getY()));
-//                s.displayText(app);
-//                app.popMatrix();
-//            }
-//        }
-//        app.popStyle();
-//    }
-
-//
-//    /**
-//     * converting status 1 geometries to JsonElement
-//     *
-//     * @param floorNum current floor
-//     * @param elements list of JsonElement
-//     * @param gson     Gson
-//     * @return void
-//     */
-//    private void convertingStatus1(int floorNum, List<JsonElement> elements, Gson gson) {
-//        // preparing data
-//        List<WB_Segment> graphSegments = getGraphSegments(floorNum);
-//        List<List<WB_Coord>> controlPoints = getBufferControlPoints(floorNum);
-//
-//        // converting to json
-//        for (WB_Segment seg : graphSegments) {
-//            Segments segments = WB_Converter.toSegments(seg);
-//            JsonObject prop1 = new JsonObject();
-//            prop1.addProperty("name", "treeEdges");
-//            segments.setProperties(prop1);
-//            elements.add(gson.toJsonTree(segments));
-//        }
-//        for (List<WB_Coord> splitPointsEach : controlPoints) {
-//            Vertices bufferControlPointsEach = WB_Converter.toVertices(splitPointsEach, 3);
-//            JsonObject prop2 = new JsonObject();
-//            prop2.addProperty("name", "bufferControl");
-//            bufferControlPointsEach.setProperties(prop2);
-//            elements.add(gson.toJsonTree(bufferControlPointsEach));
-//        }
-//    }
-//
-//    /**
-//     * converting status 2 geometries to JsonElement
-//     *
-//     * @param floorNum current floor
-//     * @param elements list of JsonElement
-//     * @param gson     Gson
-//     * @return void
-//     */
-//    private void convertingStatus2(int floorNum, List<JsonElement> elements, Gson gson) {
-//        // preparing data
-//        List<Shop> allShops = floors[floorNum - 1].getAllCells();
-//        List<WB_Polygon> allCells = new ArrayList<>();
-//        for (Shop s : allShops) {
-//            allCells.add(s.getShapeWB());
-//        }
-//
-//        // converting to json
-//        for (WB_Polygon p : allCells) {
-//            Segments cell = WB_Converter.toSegments(p);
-//            JsonObject prop = new JsonObject();
-//            prop.addProperty("name", "shopCell");
-//
-//            double area = Math.abs(p.getSignedArea());
-//            if (area > 2000) {
-//                prop.addProperty("shopType", "anchor");
-//            } else if (area > 400 && area <= 2000) {
-//                prop.addProperty("shopType", "subAnchor");
-//            } else if (area > 80 && area <= 400) {
-//                prop.addProperty("shopType", "ordinary");
-//            } else {
-//                prop.addProperty("shopType", "invalid");
-//            }
-//
-//            cell.setProperties(prop);
-//            elements.add(gson.toJsonTree(cell));
-//        }
-//    }
-//
-//    /**
-//     * converting status 3 geometries to JsonElement
-//     *
-//     * @param floorNum current floor
-//     * @param elements list of JsonElement
-//     * @param gson     Gson
-//     * @return void
-//     */
-//    private void convertingStatus3(int floorNum, List<JsonElement> elements, Gson gson) {
-//        // preparing data
-//        List<WB_Point> evacuationPoints = floors[floorNum - 1].getEvacuationPoint();
-//
-//        // converting to json
-//        Vertices evacuation = WB_Converter.toVertices(evacuationPoints, 3);
-//        JsonObject prop = new JsonObject();
-//        prop.addProperty("name", "evacuation");
-//        evacuation.setProperties(prop);
-//        elements.add(gson.toJsonTree(evacuation));
-//    }
-//
-//    /* ------------- JSON sending ------------- */
-//
-//    /**
-//     * convert backend geometries to ArchiJSON
-//     * graph segments, buffer control points
-//     *
-//     * @param floorNum current floor number
-//     * @param clientID
-//     * @param gson
-//     * @return main.ArchiJSON
-//     */
-//    public ArchiJSON toArchiJSONGraphAndBuffer(int floorNum, String clientID, Gson gson) {
-//        // initializing
-//        ArchiJSON json = new ArchiJSON();
-//        json.setId(clientID);
-//        List<JsonElement> elements = new ArrayList<>();
-//
-//        convertingStatus1(floorNum, elements, gson);
-//
-//        // setup json
-//        json.setGeometryElements(elements);
-//        return json;
-//    }
-//
-//    /**
-//     * convert backend geometries to ArchiJSON
-//     * first-level subdivision cells
-//     *
-//     * @param floorNum current floor number
-//     * @param clientID
-//     * @param gson
-//     * @return main.ArchiJSON
-//     */
-//    public ArchiJSON toArchiJSONSubdivision(int floorNum, String clientID, Gson gson) {
-//        // initializing
-//        ArchiJSON json = new ArchiJSON();
-//        json.setId(clientID);
-//        List<JsonElement> elements = new ArrayList<>();
-//
-//        convertingStatus2(floorNum, elements, gson);
-//
-//        // setup json
-//        json.setGeometryElements(elements);
-//        return json;
-//    }
-//
-//    /**
-//     * convert backend geometries to ArchiJSON
-//     * evacuation points & segments
-//     *
-//     * @param floorNum current floor number
-//     * @param clientID
-//     * @param gson
-//     * @return main.ArchiJSON
-//     */
-//    public ArchiJSON toArchiJSONEvacuation(int floorNum, String clientID, Gson gson) {
-//        // initializing
-//        ArchiJSON json = new ArchiJSON();
-//        json.setId(clientID);
-//        List<JsonElement> elements = new ArrayList<>();
-//
-//        convertingStatus3(floorNum, elements, gson);
-//
-//        // setup json
-//        json.setGeometryElements(elements);
-//        return json;
-//    }
-//
-//    /**
-//     * switch floor num: convert all geometries in one floor
-//     *
-//     * @param floorNum current floor number
-//     * @param clientID
-//     * @param gson
-//     * @return main.ArchiJSON
-//     */
-//    public ArchiJSON toArchiJSONFloor(int floorNum, String clientID, Gson gson) {
-//        // initializing
-//        ArchiJSON json = new ArchiJSON();
-//        json.setId(clientID);
-//        List<JsonElement> elements = new ArrayList<>();
-//
-//        // preparing data
-//        int currentStatus = floors[floorNum - 1].getStatus();
-//        int count = 1;
-//        if (count <= currentStatus) {
-//            convertingStatus1(floorNum, elements, gson);
-//            count++; // ==2
-//            if (count <= currentStatus) {
-//                convertingStatus2(floorNum, elements, gson);
-//                count++; // ==3
-//                if (count <= currentStatus) {
-//                    convertingStatus3(floorNum, elements, gson);
-//                }
-//            }
-//        } else {
-//            System.out.println("this floor hasn't been initialized due to some error");
-//        }
-//
-//        // setup json
-//        json.setGeometryElements(elements);
-//        return json;
-//    }
 }

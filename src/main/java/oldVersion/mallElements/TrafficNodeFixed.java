@@ -3,6 +3,7 @@ package oldVersion.mallElements;
 import basicGeometry.ZPoint;
 import math.ZGeoMath;
 import processing.core.PApplet;
+import render.ZRender;
 import transform.ZTransform;
 import wblut.geom.WB_GeometryOp2D;
 import wblut.geom.WB_Point;
@@ -99,7 +100,7 @@ public class TrafficNodeFixed extends TrafficNode {
     public void displayJoint(PApplet app, float r) {
         if (joints != null && joints.size() != 0) {
             for (ZPoint joint : joints) {
-                joint.displayAsPoint(app, r);
+                ZRender.drawZPoint2D(app, joint, r);
 //                app.line((float) this.x(), (float) this.y(), (float) joint.x(), (float) joint.y());
             }
         }

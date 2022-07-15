@@ -8,6 +8,7 @@ import math.ZMath;
 import oldVersion.MallConstant;
 import org.locationtech.jts.geom.LineString;
 import processing.core.PApplet;
+import render.ZRender;
 import wblut.geom.WB_GeometryOp;
 import wblut.geom.WB_Polygon;
 import wblut.geom.WB_Segment;
@@ -462,13 +463,13 @@ public class TrafficGraph {
         app.noStroke();
         app.fill(255, 97, 136);
         for (TrafficNode n : treeNodes) {
-            n.displayAsPoint(app);
+            ZRender.drawZPoint2D(app, n, 5);
 //            n.displayJoint(app, 5);
             n.displayAtrium(render, app);
         }
         app.fill(128);
         for (TrafficNode n : fixedNodes) {
-            n.displayAsPoint(app);
+            ZRender.drawZPoint2D(app, n, 5);
 //            n.displayJoint(app, 5);
         }
         app.popStyle();

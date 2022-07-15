@@ -60,6 +60,9 @@ public class MallServer implements ArchiServer {
             case MallConst.E_SITE_BOUNDARY:
                 processor.processStatus0(functionID, jsonR, jsonS, properties);
                 break;
+            case MallConst.E_TRAFFIC_ATRIUM:
+                processor.processStatus1(functionID, jsonR, jsonS, properties);
+                break;
             case MallConst.E_STRUCTURE_GRID:
                 processor.processStatus4(functionID, jsonR, jsonS, properties);
                 break;

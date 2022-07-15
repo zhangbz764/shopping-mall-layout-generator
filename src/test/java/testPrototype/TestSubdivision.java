@@ -11,6 +11,7 @@ import math.ZGeoMath;
 import org.locationtech.jts.geom.Polygon;
 import processing.core.PApplet;
 import render.JtsRender;
+import render.ZRender;
 import transform.ZTransform;
 import wblut.geom.*;
 import wblut.processing.WB_Render;
@@ -89,7 +90,7 @@ public class TestSubdivision extends PApplet {
         background(255);
         jtsRender.drawGeometry(b1);
         for (ZPoint p : divPts) {
-            p.displayAsPoint(this);
+            ZRender.drawZPoint2D(this, p, 5);
         }
         for (WB_Polygon cell : vors) {
             render.drawPolygonEdges(cell);

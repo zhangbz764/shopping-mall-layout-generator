@@ -5,13 +5,20 @@ import basicGeometry.ZLine;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import converter.JTS_Converter;
+import converter.WB_Converter;
+import geometry.Plane;
 import geometry.Segments;
 import geometry.Vertices;
 import main.MallGenerator;
 import mallElementNew.StructureGrid;
 import mallIO.ImportData;
 import mallParameters.MallConst;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Polygon;
+import wblut.geom.WB_Coord;
+import wblut.geom.WB_Point;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,6 +66,8 @@ public class MallJsonProcessor {
     ) {
         List<JsonElement> elements = new ArrayList<>();
 
+        Segments boundary, site;
+
         switch (functionID) {
             case MallConst.INIT_FLAG:
                 mg.initSiteBoundary(
@@ -69,10 +78,10 @@ public class MallJsonProcessor {
                         MallConst.SITE_BUFFER_DEFAULT
                 );
 
-                Segments b1 = JTSConverter.toSegments(mg.getSiteBase().getBoundary());
-                Segments s1 = JTSConverter.toSegments(mg.getSiteBase().getSite());
-                elements.add(gson.toJsonTree(b1));
-                elements.add(gson.toJsonTree(s1));
+                boundary = JTSConverter.toSegments(mg.getSiteBase().getBoundary());
+                site = JTSConverter.toSegments(mg.getSiteBase().getSite());
+                elements.add(gson.toJsonTree(boundary));
+                elements.add(gson.toJsonTree(site));
                 break;
             case MallConst.BUTTON_SWITCH_BOUNDARY:
             case MallConst.SLIDER_OFFSET_DIST:
@@ -82,8 +91,86 @@ public class MallJsonProcessor {
                 double siteOffsetDist = jsonR.getProperties().get("siteOffsetDist").getAsDouble();
                 mg.updateSiteBaseL(boundaryBase, redLineDist, siteOffsetDist);
 
-                Segments b2 = JTSConverter.toSegments(mg.getSiteBase().getBoundary());
-                elements.add(gson.toJsonTree(b2));
+                boundary = JTSConverter.toSegments(mg.getSiteBase().getBoundary());
+                elements.add(gson.toJsonTree(boundary));
+                break;
+        }
+
+        jsonS.setGeometryElements(elements);
+        jsonS.setProperties(properties);
+    }
+
+    /**
+     * back-end process for edit status 1
+     *
+     * @param functionID ID of function
+     * @param jsonR      received Archijson
+     * @param jsonS      Archijson to send
+     * @param properties properties to send
+     * @return void
+     */
+    public void processStatus1(
+            int functionID,
+            ArchiJSON jsonR,
+            ArchiJSON jsonS,
+            JsonObject properties
+    ) {
+        List<JsonElement> elements = new ArrayList<>();
+
+        Segments trafficPath, trafficBuffer;
+        Vertices entryVer, innerVer;
+        List<WB_Coord> entryCoords,innerCoords;
+        double bufferDist;
+
+        switch (functionID) {
+            case MallConst.INIT_FLAG:
+                Polygon boundary_receive = JTSConverter.toPolygon((Segments) jsonR.getGeometries().get(0));
+
+                mg.updateBoundary(boundary_receive);
+                mg.initTraffic(MallConst.TRAFFIC_BUFFER_DIST_DEFAULT);
+
+                trafficPath = JTSConverter.toSegments(mg.getMainTraffic().getMainTrafficCurve());
+                trafficBuffer = JTSConverter.toSegments(mg.getMainTraffic().getMainTrafficBuffer());
+                entryCoords = new ArrayList<>(mg.getMainTraffic().getEntryNodes());
+                entryVer = WB_Converter.toVertices(entryCoords, 3);
+                innerCoords = new ArrayList<>(mg.getMainTraffic().getInnerNodes());
+                innerVer = WB_Converter.toVertices(innerCoords, 3);
+
+                elements.add(gson.toJsonTree(trafficPath));
+                elements.add(gson.toJsonTree(trafficBuffer));
+                elements.add(gson.toJsonTree(entryVer));
+                elements.add(gson.toJsonTree(innerVer));
+                break;
+            case MallConst.DRAG_TRAFFIC_CTRL:
+                List<WB_Point> entryNode_receive = WB_Converter.toWB_Point((Vertices) jsonR.getGeometries().get(0));
+                List<WB_Point> innerNode_receive = WB_Converter.toWB_Point((Vertices) jsonR.getGeometries().get(1));
+                bufferDist = jsonR.getProperties().get("trafficWidth").getAsDouble();
+
+                mg.updateTrafficByRawNodes(entryNode_receive, innerNode_receive, bufferDist);
+
+                trafficPath = JTSConverter.toSegments(mg.getMainTraffic().getMainTrafficCurve());
+                trafficBuffer = JTSConverter.toSegments(mg.getMainTraffic().getMainTrafficBuffer());
+                entryCoords = new ArrayList<>(mg.getMainTraffic().getEntryNodes());
+                entryVer = WB_Converter.toVertices(entryCoords, 3);
+                innerCoords = new ArrayList<>(mg.getMainTraffic().getInnerNodes());
+                innerVer = WB_Converter.toVertices(innerCoords, 3);
+
+                elements.add(gson.toJsonTree(trafficPath));
+                elements.add(gson.toJsonTree(trafficBuffer));
+                elements.add(gson.toJsonTree(entryVer));
+                elements.add(gson.toJsonTree(innerVer));
+                break;
+            case MallConst.SLIDER_TRAFFIC_WIDTH:
+                bufferDist = jsonR.getProperties().get("trafficWidth").getAsDouble();
+
+                mg.updateTrafficWidth(bufferDist);
+
+                trafficBuffer = JTSConverter.toSegments(mg.getMainTraffic().getMainTrafficBuffer());
+
+                elements.add(gson.toJsonTree(trafficBuffer));
+                break;
+            case MallConst.DBCLICK_ADD_ATRIUM:
+
                 break;
         }
 

@@ -6,6 +6,7 @@ import basicGeometry.ZPoint;
 import math.ZGeoMath;
 import oldVersion.MallConstant;
 import processing.core.PApplet;
+import render.ZRender;
 import wblut.geom.WB_Point;
 import wblut.geom.WB_Polygon;
 import wblut.processing.WB_Render;
@@ -276,7 +277,6 @@ public class AtriumOld {
     }
 
 
-
     public void displayActiveControl(PApplet app) {
         app.strokeWeight(3);
         controlPoints.get(activeIndex).display(app);
@@ -372,7 +372,7 @@ public class AtriumOld {
             if (polyPoints.size() == 2) {
                 app.line(polyPoints.get(0).xf(), polyPoints.get(0).yf(), polyPoints.get(1).xf(), polyPoints.get(1).yf());
             }
-            point.displayAsPoint(app, 5);
+            ZRender.drawZPoint2D(app, point, 5);
         }
     }
 }

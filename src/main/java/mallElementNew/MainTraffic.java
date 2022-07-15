@@ -102,12 +102,15 @@ public class MainTraffic {
     /**
      * update main traffic
      *
-     * @param innerNodes_receive received inner node
      * @param entryNodes_receive received entry node
+     * @param innerNodes_receive received inner node
      * @param bufferDist         distance to buffer
      * @return void
      */
-    public void updateTraffic(List<WB_Point> innerNodes_receive, List<WB_Point> entryNodes_receive, double bufferDist) {
+    public void updateTraffic(List<WB_Point> entryNodes_receive, List<WB_Point> innerNodes_receive, double bufferDist) {
+        this.innerNodes = innerNodes_receive;
+        this.entryNodes = entryNodes_receive;
+
         this.allControlNodes = new WB_Point[innerNodes_receive.size() + entryNodes_receive.size()];
         allControlNodes[0] = entryNodes_receive.get(0);
         for (int i = 0; i < innerNodes_receive.size(); i++) {
@@ -133,18 +136,21 @@ public class MainTraffic {
         this.mainTrafficBuffer = (Polygon) mainTrafficCurve.buffer(bufferDist);
         this.trafficLength = mainTrafficCurve.getLength();
     }
-
     /* ------------- setter & getter ------------- */
 
     public LineString getMainTrafficCurve() {
         return mainTrafficCurve;
     }
 
-    public LineString getMainTrafficInnerLS(){
+    public WB_PolyLine getMainTrafficCurveWB(){
+        return ZTransform.LineStringToWB_PolyLine(mainTrafficCurve);
+    }
+
+    public LineString getMainTrafficInnerLS() {
         return new ZBSpline(innerNodes.toArray(new WB_Point[0]), 3, 50, ZBSpline.CLAMPED).getAsLineString();
     }
 
-    public WB_PolyLine getMainTrafficInnerWB(){
+    public WB_PolyLine getMainTrafficInnerWB() {
         return new ZBSpline(innerNodes.toArray(new WB_Point[0]), 3, 50, ZBSpline.CLAMPED).getAsWB_PolyLine();
     }
 

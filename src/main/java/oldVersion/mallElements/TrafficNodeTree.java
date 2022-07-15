@@ -3,6 +3,7 @@ package oldVersion.mallElements;
 import basicGeometry.ZPoint;
 import math.ZGeoMath;
 import processing.core.PApplet;
+import render.ZRender;
 import wblut.geom.WB_GeometryOp;
 import wblut.geom.WB_Point;
 import wblut.geom.WB_Polygon;
@@ -174,7 +175,7 @@ public class TrafficNodeTree extends TrafficNode {
     public void displayJoint(PApplet app, float r) {
         if (joints != null && joints.size() != 0) {
             for (ZPoint joint : joints) {
-                joint.displayAsPoint(app, r);
+                ZRender.drawZPoint2D(app, joint, r);
             }
         }
     }

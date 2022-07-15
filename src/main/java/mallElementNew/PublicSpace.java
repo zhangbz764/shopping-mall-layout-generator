@@ -245,7 +245,7 @@ public class PublicSpace {
 
         // round atriums
         for (Atrium a : atriums) {
-            a.setCurrShape(ZGeoMath.roundPolygon(a.trimShape, MallConst.ATRIUM_ROUND_RADIUS_INIT, 10));
+            a.setCurrShape(ZGeoMath.roundPolygon(a.trimShape, MallConst.ATRIUM_ROUND_RADIUS_DEFAULT, 10));
         }
     }
 
@@ -365,7 +365,7 @@ public class PublicSpace {
         if (a.roundOrSmooth) {
             a.setCurrShape(ZGeoMath.smoothPolygon(a.trimShape, 4, 2));
         } else {
-            a.setCurrShape(ZGeoMath.roundPolygon(a.trimShape, MallConst.ATRIUM_ROUND_RADIUS_INIT, 10));
+            a.setCurrShape(ZGeoMath.roundPolygon(a.trimShape, MallConst.ATRIUM_ROUND_RADIUS_DEFAULT, 10));
         }
         a.roundOrSmooth = !a.roundOrSmooth;
     }

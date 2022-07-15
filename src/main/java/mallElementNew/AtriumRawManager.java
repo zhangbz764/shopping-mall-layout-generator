@@ -96,13 +96,50 @@ public class AtriumRawManager {
     /**
      * remove an AtriumRaw from the manager
      *
-     * @param a AtriumRaw
+     * @param id index of AtriumRaw
      * @return void
      */
-    public void removeAtriumRaw(AtriumRaw a) {
-        int index = atriumRaws.indexOf(a);
-        atriumRaws.remove(a);
-        posPercentage.remove(index);
+    public void removeAtriumRaw(int id) {
+        atriumRaws.remove(id);
+        posPercentage.remove(id);
+    }
+
+    /**
+     * change curve shape or polygon shape of the selected AtriumRaw
+     *
+     * @param id index of AtriumRaw
+     * @return void
+     */
+    public void switchAtriumRawCurve(int id) {
+        AtriumRaw raw = atriumRaws.get(id);
+        raw.reverseCurve();
+        validateAtriumRaw();
+    }
+
+    /**
+     * rotate AtriumRaw
+     *
+     * @param id    index of AtriumRaw
+     * @param angle angle to rotate
+     * @return void
+     */
+    public void rotateAtriumRaw(int id, double angle) {
+        AtriumRaw raw = atriumRaws.get(id);
+        raw.rotateByAngle(angle);
+        validateAtriumRaw();
+    }
+
+    /**
+     * change AtriumRaw area
+     *
+     * @param id   index of AtriumRaw
+     * @param area new area to change
+     * @return void
+     */
+    public void changeAtriumRawArea(int id, double area) {
+        AtriumRaw raw = atriumRaws.get(id);
+        raw.scaleShapeByArea(area);
+        validateAtriumRaw();
     }
 
     /**

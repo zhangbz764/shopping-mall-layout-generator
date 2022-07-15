@@ -1,5 +1,7 @@
 package mallWeb;
 
+import java.util.Date;
+
 /**
  * description
  *
@@ -10,6 +12,7 @@ package mallWeb;
  */
 public class MallWebMain {
     public static void main(String[] args) {
+        System.out.println(">>> back-end server start at: " + new Date(System.currentTimeMillis()));
         new MallServer();
 //        if (args.length > 0) {
 //            new MallServer(args);
